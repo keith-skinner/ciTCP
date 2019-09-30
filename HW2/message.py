@@ -10,6 +10,7 @@ class Message:
         CONF = 'CONF' #Confirmation from server (for validation)
         DENY = 'DENY' #Denied confirmation from server (for validation)
         ENDG = 'ENDG' #Disconnect from the game (sever/client)
+        CONT = 'CONT' #Continue game after person goes
 
         CMOV = 'CMOV' #Requesting a move
         CGID = 'CGID' #Requesting a game
@@ -42,6 +43,9 @@ class Message:
         return self.message[2]
 
     def getRole(self):
+        return self.message[3]
+
+    def getMove(self):
         return self.message[3]
 
     @staticmethod

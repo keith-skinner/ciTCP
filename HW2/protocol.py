@@ -75,7 +75,7 @@ def ClientValidateSID(socket, sid):
     return sid, None
 
 
-def ClientRequestGame(socket, sid):
+def ClientPlayRequest(socket, sid):
     logging.info('Requesting to play')
     message = Message(Message.Code.CGID, sid)
     send(socket, str(message))
@@ -92,8 +92,10 @@ def ClientRequestGame(socket, sid):
     if not expectedSegment(message.getSID(), sid):
         return None, 'Incorrect response from server'
     
-    gid = message.getGID()
-    
+    return message.getGID(), None
+
+
+def ClientRoleAssignment(socket, sid, gid):
     length = createMessageLength(
         Message.Segment.CODE, 
         Message.Segment.CSID, 
@@ -110,8 +112,20 @@ def ClientRequestGame(socket, sid):
     if not expectedSegment(message.getGID(message), gid):
         return None, 'Incorrect response from server'
     
-    #Return Game ID and Role
-    return gid, getRole(message)
+    return message.getRole(message), None
+    
+
+def ClientRequestGame(socket, sid):
+    logging.info('Requesting to play')
+    gid, reason = ClientPlayRequest(socket, sid)
+    if gid is None:
+        return None, None, reason
+    
+    role, reason = ClientRoleAssignment(socket, sid, gid)
+    if role is None:
+        return None, None, reason
+
+    return gid, role, None
 
 
 def ClientValidateGID(socket, sid, gid):
@@ -133,6 +147,7 @@ def ClientValidateGID(socket, sid, gid):
         return None, 'Incorrect response from server'
     return sid, None
 
+
 def ClientReceiveMove(socket, sid, gid, position):
     logging.info('Receiving Opponent\'s Move')
     length = Message.length(
@@ -141,7 +156,17 @@ def ClientReceiveMove(socket, sid, gid, position):
         Message.Segment.CGID,
         Message.Segment.MOVE)
     message = Message().set(recv(socket, length))
-    # TODO all the other message = Message()
+    
+    if rejected(message):
+        return None, 'Client was rejected from server'
+    if not expectedSegment(message.getCode(), Message.Segment.CMOV)
+        return None, 'Unexpected message from server'
+    if not expectedSegment(message.getSID(), sid)
+        return None, 'Unexpected message from server'
+    if not expectedSegment(message.getGID(), gid)
+        return None, 'Unexpected message from server'
+    
+    return message.getMove()
 
 
 def ClientRequestMove(socket, sid, gid, position):
@@ -152,38 +177,52 @@ def ClientRequestMove(socket, sid, gid, position):
     length = Message.length(
         Message.Segment.CODE,
         Message.Segment.CSID, 
-        Message.Segment.CGID)
-    message = recv(socket, length)
+        Message.Segment.CGID,
+        Message.Segment.MOVE)
+    message = message.set(recv(socket, length))
 
     if rejected(message):
-        return None, None
-    if not expectedCodes(message, CONFIRM, REJECT):
-        return None, None 
-    if not expectedCode(getCSID(message), csid):
-        return None, None
-    if not expectedCode(getGID(message), gid):
-        return None, None
+        return None, 'Client was rejected from server'
+    if not expectedSegments(message, Message.Code.CONF, Message.Code.DENY):
+        return None, 'Unexpected message from server'
+    if not expectedSegment(message.getSID(), sid):
+        return None, 'Unexpected message from server'
+    if not expectedCode(message.getGID(), gid):
+        return None, 'Unexpected message from server'
+    if message.getCode() == Message.Code.Deny:
+        return False, f'Position already taken: {position}'
+    return True, None
 
-    accepted = False
-    if getCode(message) == TURN:
-        accepted = True
-    if getCode(message) == REJECT:
-        accepted = False
 
-    length = createMessage(CODE_LEN, CSID_LEN, GID_LEN)
-    message = recv(socket, length)
+def ClientGameOver(socket, sid, gid):
+    length = createMessage(
+        Message.Code.CODE,
+        Message.Code.SID, 
+        Message.Code.GID)
+    message = Message().set(recv(socket, length))
+
     if rejected(message):
-        return None, None
-    if not expectedCodes(message, END_GAME, CONTINUE_GAME):
-        return None, None
-    if not expectedCode(getCSID(message), csid)
-        return None, None
-    if not expectedCode(getGID(message), gid)
-        return None, None
+        return None, 'Client was rejected from server'
+    if not expectedSegments(message, END_GAME, CONTINUE_GAME):
+        return None, 'Unexpected message from server'
+    if not expectedSegments(message.getSID(), sid)
+        return None, 'Unexpected message from server'
+    if not expectedSegments(message.getGID(), gid)
+        return None, 'Unexpected message from server'
+    
+    if message.getCode() == Message.Code.ENDG:
+        return True, None
+    if message.getCode() == Message.Code.CONT:
+        return False, None
+    return None, 'Unexpected message from server'
 
 
 def ClientSessionDisconnect(socket, sid):
-    pass
+    message = Message(Message.Code.DCON, sid)
+    send(socket, str(message))
+
 
 def ClientGameDisconnect(socket, sid, gid):
+    message = Message(Message.Code.ENDG, sid, gid)
+    send(socket, str(message))
 
