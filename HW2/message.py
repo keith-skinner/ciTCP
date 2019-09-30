@@ -3,15 +3,17 @@ import Enum from enum
 class Message:
 
     class Code(Enum):
-        CONN = 'CONN'
-        DCON = 'DCON'
-        RJCT = 'RJCT'
-        CONF = 'CONF'
-        ENDG = 'ENDG'
-        CONT = 'CONT'
-        TURN = 'TURN'
-        PLAY = 'PLAY'
-        CSID = 'CSID'
+        RJCT = 'RJCT' #Rejected by server
+        CONN = 'CONN' #Connecting to server
+        DCON = 'DCON' #Disconnecting to/from server
+
+        CONF = 'CONF' #Confirmation from server (for validation)
+        DENY = 'DENY' #Denied confirmation from server (for validation)
+        ENDG = 'ENDG' #Disconnect from the game (sever/client)
+
+        CMOV = 'CMOV' #Requesting a move
+        CGID = 'CGID' #Requesting a game
+        CSID = 'CSID' #Requesting a session
 
     #Lengths of each segment
     class Segment(Enum):
@@ -20,8 +22,8 @@ class Message:
         GID = 4
         ROLE = 1
 
-    def __init__(self, message):
-        self.set(message)
+    def __init__(self, *segments):
+        self.message = list(segments)
 
     def set(self, message):
         self.message = message.split(':')

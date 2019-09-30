@@ -15,8 +15,6 @@ class Client:
         self.role = None
 
     def connect(self):
-        pass
-    
         self.sid, reason = Protocol.ClientConnect(self.socket)
         if self.sid is None:
             self.socket.close()
@@ -24,15 +22,16 @@ class Client:
         return True, None
 
     def play(self):
-        pass
-
         self.gid, self.role, reason = Protocol.ClientGame(self.socket, self.sid)
         if self.gid is None or self.sid is None:
             self.socket.close()
             return False, reason
         return True, None
     
-    def move(self, move):
+    def playerMove(self, move):
+        
+
+    def oponentMove(self):
         pass
 
     def disconnect(self):

@@ -1,21 +1,7 @@
 #!/usr/bin/env python3
 import socket, logging
 from common import recvall
-
-#General Responses
-CONNECT = 'CONN'
-DISCONNECT = 'DCON'
-REJECT = 'RJCT'
-CONFIRM = 'CONF'
-END_GAME = 'ENDG'
-#Requests / Response
-TURN = 'TURN'
-PLAY = 'PLAY'
-CSID = 'CSID'
-SID_LEN = 4
-GID_LEN = 4
-CODE_LEN = 4
-ROLE_LEN = 1
+import Message from message
 
 
 def send(socket, message):
@@ -29,97 +15,162 @@ def recv(socket, length):
     return message
 
 
+def expectedSegment(message, expected):
+    return expectedSegments(message, expected)
+
+
+def expectedSegments(message, *argv):
+    found = False
+    for expected in argv:
+        if message.startswith(expected):
+            found = True
+    if not found:
+        logging.error(
+            'Recieved bad message from server:\n' +
+            '    Expected: ' + ' '.join(argv) + '\n' +
+            '    Recieved: ' + message)
+    return found
+
+
 def rejected(message):
-    if message.startswith(REJECT):
+    if message.getCode().startswith(Message.Code.RJCT)
         logging.info('Rejected from server: '+ message)
         return True
     return False
 
 
-def expectedCode(message, expected):
-    if not message.startswith(expected):
-        logging.error('Recieved bad message from server:')
-        logging.error('    Expected: ' + expected)
-        logging.error('    Recieved: ' + message)
-        return False
-    return True
+def ClientRequestConnect(socket):
+    logging.info('Requesting to connect')
+    message = Message(Message.Code.CONN)
+    send(socket, str(message))
 
+    length = Message.length(
+        Message.Segment.CODE, 
+        Message.Segment.SID)
+    message.set(recv(socket, length))
 
-def getCode(message):
-    return splitMessage(message)[0]
-
-
-def getCSID(message):
-    return splitMessage(message)[1]
-
-
-def getGID(message):
-    return splitMessage(message)[2]
-
-
-def getRole(message):
-    return splitMessage(message)[3]
-
-
-def splitMessage(message):
-    return message.split(':')
-
-
-def createMessage(*argv):
-    return (':'.join(argv)).encode()
-
-
-def clientRequestConnect(socket):
-    # TODO: change pdf to not make redundent checks to server
-    message = createMessage(CONNECT)
-    send(socket, message)
-    message = recv(socket, CODE_LEN + 1 + SID_LEN)
-    
-    if rejected(message) or not expectedCode(message, CONNECT):
-        return None
-    csid = getCSID(message)
-    return csid
-
-
-def clientCheckCSID(socket, csid):
-    message = createMessage(CSID, csid)
-    send(socket, message)
-    message = recv(socket, CODE_LEN)
-    if rejected(message) or not expectedCode(message, CONFIRM):
-        return None
-    return csid
-
-
-def clientRequestGame(socket, csid):
-    #Send Play Request
-    message = createMessage(PLAY, csid)
-    send(socket, message)
-    
-    #Confirm Play Request
-    length = CODE_LEN + 1 + SID_LEN
-    message = recv(socket, length)
-    if len(message) != length:
-        return None, None
     if rejected(message):
-        return None, None
-    if not expectedCode(message, PLAY):
-        return None, None
-    if not expectedCode(getCSID(message), csid):
-        return None, None
-    
-    #Init Game
-    length = CODE_LEN+1+SID_LEN+1+GID_LEN+1+ROLE_LEN
-    message = recv(socket, length)
-    if len(message) != length:
-        return None, None
+        return None, 'Client was rejected from server'
+    if not expectedSegment(message.getCode(), Message.Code.CONN):
+        return None, 'Unexpected message from server'
+    return message.getSID()
+
+
+def ClientValidateSID(socket, sid):
+    logging.info('Requesting sid validation')
+    message = Message(Message.Code.CONF, sid)
+    send(socket, str(message))
+
+    length = Message.length(
+        Message.Segment.CODE, 
+        Message.Segment.SID)
+    message.set(recv(socket, length))
+
     if rejected(message):
-        return None, None
-    if not expectedCode(message, PLAY):
-        return None, None
-    if not expectedCode(getCSID(message), csid):
-        return None, None
+        return None, 'Client was rejected from server'
+    if not expectedSegment(message.getCode(), Message.Code.CONF):
+        return None, 'Incorrect sid, request new session id'
+    if not expectedSegment(message.getSID(), sid):
+        return None, 'Incorrect response from server'
+    return sid, None
+
+
+def ClientRequestGame(socket, sid):
+    logging.info('Requesting to play')
+    message = Message(Message.Code.CGID, sid)
+    send(socket, str(message))
+    
+    length = Message.length(
+        Message.Segment.CODE, 
+        Message.Segment.SID)
+    message.set(recv(socket, length))
+
+    if rejected(message):
+        return None, 'Rejected from server'
+    if not expectedSegment(message.getCode(), Message.Code.CGID):
+        return None, 'Incorrect response from server'
+    if not expectedSegment(message.getSID(), sid):
+        return None, 'Incorrect response from server'
+    
+    gid = message.getGID()
+    
+    length = createMessageLength(
+        Message.Segment.CODE, 
+        Message.Segment.CSID, 
+        Message.Segment.CGID, 
+        Message.Segment.ROLE)
+    message.set(recv(socket, length))
+
+    if rejected(message):
+        return None, 'Rejected from server'
+    if not expectedSegment(message.getCode(), Message.Code.CGID):
+        return None, 'Incorrect response from server'
+    if not expectedSegment(message.getSID(message), sid):
+        return None, 'Incorrect response from server'
+    if not expectedSegment(message.getGID(message), gid):
+        return None, 'Incorrect response from server'
     
     #Return Game ID and Role
-    return getGID(message), getRole(message)
+    return gid, getRole(message)
 
+
+def ClientValidateGID(socket, sid, gid):
+    logging.info('Requesting gid validation')
+    message = Message(Message.Code.CONF, sid, gid)
+    send(socket, str(message))
+
+    length = Message.length(
+        Message.Segment.CODE, 
+        Message.Segment.SID,
+        Message.Segment.GID)
+    message.set(recv(socket, length))
+
+    if rejected(message):
+        return None, 'Client was rejected from server'
+    if not expectedSegment(message.getCode(), Message.Code.CONF):
+        return None, 'Incorrect sid, request new session id'
+    if not expectedSegment(message.getSID(), sid):
+        return None, 'Incorrect response from server'
+    return sid, None
+
+
+def ClientRequestMove(socket, sid, gid, position):
+    logging.info('Requesting to make turn')
+    message = Message(Message.Code.CMOV, csid, gid, position)
+    send(socket, str(message))
+
+    length = createMessageLength(CODE_LEN, CSID_LEN, GID_LEN)
+    message = recv(socket, length)
+
+    if rejected(message):
+        return None, None
+    if not expectedCodes(message, CONFIRM, REJECT):
+        return None, None 
+    if not expectedCode(getCSID(message), csid):
+        return None, None
+    if not expectedCode(getGID(message), gid):
+        return None, None
+
+    accepted = False
+    if getCode(message) == TURN:
+        accepted = True
+    if getCode(message) == REJECT:
+        accepted = False
+
+    length = createMessage(CODE_LEN, CSID_LEN, GID_LEN)
+    message = recv(socket, length)
+    if rejected(message):
+        return None, None
+    if not expectedCodes(message, END_GAME, CONTINUE_GAME):
+        return None, None
+    if not expectedCode(getCSID(message), csid)
+        return None, None
+    if not expectedCode(getGID(message), gid)
+        return None, None
+
+
+def ClientSessionDisconnect(socket, sid):
+    pass
+
+def ClientGameDisconnect(socket, sid, gid):
 

@@ -6,10 +6,9 @@ class Engine:
     X = '❌'
     O = '⭕'
 
-    winning_combos = [ 
+    winning_combos = [ (0, 4, 8), (2, 4, 6),
         (0, 1, 2), (3, 4, 5), (6, 7, 8),
-        (0, 3, 6), (1, 4, 7), (2, 5, 8),
-        (0, 4, 8), (2, 4, 6)]
+        (0, 3, 6), (1, 4, 7), (2, 5, 8) ]
 
     def __init__(self):
         self.restart()
@@ -46,11 +45,3 @@ class Engine:
             self.x_turn = not self.x_turn
             return True
         return False
-
-
-if __name__ == "__main__":
-    engine = Engine()
-    print(engine, end='\n\n')
-    for i in range(0, 9):
-        engine.make_move(i)
-        print(engine, end='\n\n')
