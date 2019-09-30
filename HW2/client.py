@@ -1,26 +1,50 @@
 #!/usr/bin/env python3
 import argparse, socket, logging
-from protocol import Protocol
+import protocol as Protocol
 from common import recvall
 
 # Uncomment the line below to print the INFO messages
 # logging.basicConfig(level=logging.INFO)
 
-
-
 class Client:
 
-    def __init__(self):
-        self.sid = 0
-        self.gid = 0
+    def __init__(self, socket):
         self.socket = None
+        self.sid = None
+        self.gid = None
+        self.role = None
+
+    def connect(self):
+        pass
+    
+        self.sid, reason = Protocol.ClientConnect(self.socket)
+        if self.sid is None:
+            self.socket.close()
+            return False, reason
+        return True, None
+
+    def play(self):
+        pass
+
+        self.gid, self.role, reason = Protocol.ClientGame(self.socket, self.sid)
+        if self.gid is None or self.sid is None:
+            self.socket.close()
+            return False, reason
+        return True, None
+    
+    def move(self, move):
+        pass
+
+    def disconnect(self):
+        pass
+
+    def validateSID(self):
+        pass
+
+    def validateGID(self):
+        pass
 
 
-    def connect(self, host):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host,port))
-        logging.info('Connect to server: ' + host + ' on port: ' + str(port))
-        self.sid = Protocol.connect(self.socket)
 
 if __name__ == '__main__':
     port = 9001
