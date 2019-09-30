@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import socket, logging
 from common import recvall
 import Message from message
@@ -142,13 +141,15 @@ def ClientValidateGID(socket, sid, gid):
     if rejected(message):
         return None, 'Client was rejected from server'
     if not expectedSegment(message.getCode(), Message.Code.CONF):
-        return None, 'Incorrect sid, request new session id'
+        return None, 'Incorrect response from server'
     if not expectedSegment(message.getSID(), sid):
         return None, 'Incorrect response from server'
-    return sid, None
+    if not expectedSegment(message.getGid(), gid):
+        return None, 'Incorrect response from server'
+    return gid, None
 
 
-def ClientReceiveMove(socket, sid, gid, position):
+def ClientReceiveMove(socket, sid, gid):
     logging.info('Receiving Opponent\'s Move')
     length = Message.length(
         Message.Segment.CODE,
@@ -166,7 +167,7 @@ def ClientReceiveMove(socket, sid, gid, position):
     if not expectedSegment(message.getGID(), gid)
         return None, 'Unexpected message from server'
     
-    return message.getMove()
+    return message.getMove(), None
 
 
 def ClientRequestMove(socket, sid, gid, position):
@@ -220,9 +221,11 @@ def ClientGameOver(socket, sid, gid):
 def ClientSessionDisconnect(socket, sid):
     message = Message(Message.Code.DCON, sid)
     send(socket, str(message))
+    return True
 
 
 def ClientGameDisconnect(socket, sid, gid):
     message = Message(Message.Code.ENDG, sid, gid)
     send(socket, str(message))
+    return True
 
