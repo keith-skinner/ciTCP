@@ -21,6 +21,7 @@ class Message:
         SID = 4
         GID = 4
         ROLE = 1
+        MOVE = 1
 
     def __init__(self, *segments):
         self.message = list(segments)

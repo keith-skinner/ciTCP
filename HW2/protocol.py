@@ -133,13 +133,26 @@ def ClientValidateGID(socket, sid, gid):
         return None, 'Incorrect response from server'
     return sid, None
 
+def ClientReceiveMove(socket, sid, gid, position):
+    logging.info('Receiving Opponent\'s Move')
+    length = Message.length(
+        Message.Segment.CODE,
+        Message.Segment.CSID,
+        Message.Segment.CGID,
+        Message.Segment.MOVE)
+    message = Message().set(recv(socket, length))
+    # TODO all the other message = Message()
+
 
 def ClientRequestMove(socket, sid, gid, position):
     logging.info('Requesting to make turn')
-    message = Message(Message.Code.CMOV, csid, gid, position)
+    message = Message(Message.Code.CMOV, sid, gid, position)
     send(socket, str(message))
 
-    length = createMessageLength(CODE_LEN, CSID_LEN, GID_LEN)
+    length = Message.length(
+        Message.Segment.CODE,
+        Message.Segment.CSID, 
+        Message.Segment.CGID)
     message = recv(socket, length)
 
     if rejected(message):
