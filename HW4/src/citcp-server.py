@@ -8,7 +8,7 @@ from enum import Enum, auto
 class TCPState(Enum):
     CLOSED = auto()
     LISTEN = auto()
-    SYN_SEND = auto()
+    SYN_SENT = auto()
     SYN_RECIEVED = auto()
     ESTABLISHED = auto()
     CLOSE_WAIT = auto()
@@ -19,12 +19,12 @@ class TCPState(Enum):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(prog="ciTCP-server", description="ciTCP Server")
+    parser = argparse.ArgumentParser(prog="ciTCP-server", description="A ciTCP Server")
     parser.add_argument('port', help="port the server binds to", type=int)
     parser.add_argument('file', help="file the server sends")
     args = parser.parse_args()
 
-    seed(19930603) # numpy.random seed
+    seed(0x429F2019)
 
     STATE = TCPState.CLOSED
     logging.info(f"State: {STATE.name}")
@@ -55,13 +55,10 @@ if __name__ == '__main__':
             logging.error(f"Message: Incorrect Flags; State: {STATE.name}")
             exit() #TODO: retry
 
-        seq_num = randint(0, 2**16)
+        seq_num = randint(0, Header.Limits.MAX_SEQ.value)
         ack_num = syn.seq
 
-        syn_ack = Header()
-        syn_ack.setSeqNum(seq_num).setAckNum(ack_num)
-        syn_ack.setWindow(0).setChecksum(syn_ack.calcChecksum())
-        syn_ack.setSYN().setACK()
+        syn_ack = Header.create(seq_num, ack_num, 0, Header.Flags.SYN.value | Header.Flags.ACK.value)
         seq_num += 1
 
         logging.info(f"Sent Header:\n{syn_ack}")
@@ -94,6 +91,10 @@ if __name__ == '__main__':
 
         STATE = TCPState.ESTABLISHED
         logging.info(f"State: {STATE.name}")
+
+        ## SEND FILE HERE
+
+        ## SERVER HAPPENS TO BE FIN RECIEVER
 
         fin = None
         fin_received = False
