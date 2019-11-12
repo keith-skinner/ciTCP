@@ -33,7 +33,7 @@ class Header:
     @classmethod
     def create(cls, seq, ack, window, flags):
         temp = cls(seq, ack, window, 0, flags)
-        temp.setChecksum(cls.calcChecksum())
+        temp.setChecksum(temp.calcChecksum())
         return temp
 
     def resetFlags(self):
@@ -41,49 +41,49 @@ class Header:
         return self
 
     def setACK(self):
-        self.flags |= Flags.ACK.value
+        self.flags |= Header.Flags.ACK.value
         return self
     
     def setSYN(self):
-        self.flags |= Flags.SYN.value
+        self.flags |= Header.Flags.SYN.value
         return self
     
     def setFIN(self):
-        self.flags |= Flags.FIN.value
+        self.flags |= Header.Flags.FIN.value
         return self
 
     def getFlag(self, mask):
         return 1 if self.flags & mask != 0 else 0
 
     def getACK(self):
-        return self.getFlag(Flags.ACK.value)
+        return self.getFlag(Header.Flags.ACK.value)
 
     def getSYN(self):
-        return self.getFlag(Flags.SYN.value)
+        return self.getFlag(Header.Flags.SYN.value)
     
     def getFIN(self):
-        return self.getFlag(Flags.FIN.value)
+        return self.getFlag(Header.Flags.FIN.value)
     
     def setSeqNum(self, number):
-        if number < 0 or number >= Limits.MAX_SEQ.value:
+        if number < 0 or number >= Header.Limits.MAX_SEQ.value:
             raise ValueError("number ({}) must be in [0, 2**16)".format(number))
         self.seq = number
         return self
     
     def setAckNum(self, number):
-        if number < 0 or number >= Limits.MAX_ACK.value:
+        if number < 0 or number >= Header.Limits.MAX_ACK.value:
             raise ValueError("number ({}) must be in [0, 2**16)".format(number))
         self.ack = number
         return self
     
     def setWindow(self, window):
-        if window < 0 or window >= Limits.MAX_WINDOW:
+        if window < 0 or window >= Header.Limits.MAX_WINDOW:
             raise ValueError("window ({}) must be in [0, 2**16)".format(window))
         self.window = window
         return self
 
     def setChecksum(self, checksum):
-        if checksum < 0 or checksum >= Limits.MAX_CHECKSUM:
+        if checksum < 0 or checksum >= Header.Limits.MAX_CHECKSUM:
             raise ValueError("checksum ({}) must be in [0, 2**16)".format(checksum))
         self.checksum = checksum
         return self
