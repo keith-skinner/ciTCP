@@ -18,117 +18,95 @@ class TCPState(Enum):
     TIME_WAIT = auto()
 
 
-if __name__ == '__main__':
+def parseArgs():
     parser = argparse.ArgumentParser(prog="ciTCP-server", description="A ciTCP Server")
     parser.add_argument('port', help="port the server binds to", type=int)
     parser.add_argument('file', help="file the server sends")
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    seed(0x429F2019)
-
-    STATE = TCPState.CLOSED
+def changeState(STATE):
     logging.info(f"State: {STATE.name}")
+    return STATE
 
+def initSocket(args):
     logging.info("Creating TCP/IP socket")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
     server_address = ('localhost', args.port)
     logging.info(f"Binding socket to port {server_address[0]}:{server_address[1]}")
     sock.bind(server_address)
+    return sock
+
+def recv(sock):
+    logging.info("Waiting to receive connection")
+    data, address = sock.recvfrom(Header.length())
+    logging.info(f"Received Data: {data}")
+    h = Header.fromBytes(data, 'big')
+    logging.info(f"Received Header:\n{h}")
+    return h, address
+
+def firstRecv(sock):
+    syn, address = recv(sock)
+    #create starter variables
+    seq_num = randint(0, Header.Limits.MAX_SEQ.value)
+    ack_num = syn.seq
+    window = 0
+    return address, seq_num, ack_num, window
+
+def dataSend(sock, header, data):
+    pass
+
+def headerSend(sock, header):
+    logging.info(f"Sent Header:{header}")
+    header_raw = header.toBytes('big')
+    logging.info(f"Sent Data: {header_raw}")
+    sock.sendto(header_raw, address)
+
+def send(sock, header, data):
+    if data is None:
+        headerSend(sock, header)
+    else:
+        dataSend(sock, header, data)
+
+def ciTcpInit(seedVal):
+    args = parseArgs()
+    seed(seedVal)
+    state = changeState(TCPState.CLOSED)
+    sock = initSocket(args)
+    return state, sock
+    
+# TODO: Error checking for exceptions
+if __name__ == '__main__':
+    state, sock = ciTcpInit(0x429F2019)
 
     while True:
-        STATE = TCPState.LISTEN
-        logging.info(f"State: {STATE.name}")
+        state = changeState(TCPState.LISTEN)
+        address, seq_num, ack_num, window = firstRecv(sock)
 
-        logging.info("Waiting to receive connection")
-        data, address = sock.recvfrom(Header.length())
-        logging.info(f"Received Data: {data}")
-        syn = Header.fromBytes(data, 'big')
-        logging.info(f"Received Header:\n{syn}")
+        flags = Header.Flags.SYN.value | Header.Flags.ACK.value
+        syn_ack = Header.create(seq_num, ack_num, window, flags)
+        send(sock, syn_ack, None)
 
-        #reject connection if corrupt or not syn
-        if syn.isCorrupted():
-            logging.error(f"Message: Corrupted; State: {STATE.name}")
-            exit() #TODO: retry
+        state = changeState(TCPState.SYN_RECIEVED)
         
-        if not syn.getSYN() or syn.getACK() or syn.getFIN():
-            logging.error(f"Message: Incorrect Flags; State: {STATE.name}")
-            exit() #TODO: retry
-
-        seq_num = randint(0, Header.Limits.MAX_SEQ.value)
-        ack_num = syn.seq
-
-        syn_ack = Header.create(seq_num, ack_num, 0, Header.Flags.SYN.value | Header.Flags.ACK.value)
-        seq_num += 1
-
-        logging.info(f"Sent Header:\n{syn_ack}")
-        syn_ack_data = syn_ack.toBytes('big')
-        logging.info(f"Sent Data: {syn_ack_data}")
-        sock.sendto(syn_ack_data, address)
-
-        STATE = TCPState.SYN_RECIEVED
-        logging.info(f"State: {STATE.name}")
+        ack, address = recv(sock)
         
-        data, address = sock.recvfrom(Header.length())
-        logging.info(f"Received Data: {data}")
-        ack = Header.fromBytes(data)
-        logging.info(f"Received Header: {data}")
-
-        #reject connection if corrupt or not ack
-        if ack.isCorrupted():
-            logging.error(f"Message: Corrupted; State: {STATE.name}")
-            exit() #TODO: retry
+        state = changeState(TCPState.ESTABLISHED)
         
-        if not ack.getACK() or ack.getSYN() or ack.getFIN():
-            logging.error(f"Message: Incorrect Flags: {ack.flags}; State: {STATE.name}")
-            exit() #TODO: retry
-
-        if not ack_num == ack.seq-1:
-            logging.error(f"Message: Unexpected Sequence Number: {ack.seq}; State: {STATE.name}")
-            exit() #TODO: retry
-
-        ack_num += 1
-
-        STATE = TCPState.ESTABLISHED
-        logging.info(f"State: {STATE.name}")
-
         ## SEND FILE HERE
 
         ## SERVER HAPPENS TO BE FIN RECIEVER
 
-        fin = None
-        fin_received = False
-        while not fin_received:
-            data, address = sock.recvfrom(Header.length())
-            logging.info(f"Received Data: {data}")
-            fin = Header.fromBytes(data)
-            logging.info(f"Received Header: {data}")
+        fin, address = recv(sock)
 
-            if fin.getFIN() and not fin.getAck() and not fin.getSYN():
-                fin_received = True
-        
-        fin_ack = Header()
-        fin_ack.setSeqNum(seq_num).setAckNum(ack_num)
-        fin_ack.setWindow(0).setChecksum(fin_ack.calcChecksum())
-        fin_ack.setACK()
-        seq_num += 1
+        flags = Header.Flags.ACK.value
+        fin_ack = Header.create(seq_num, ack_num, window, flags)
+        send(sock, fin_ack, None)
 
-        logging.info(f"Sent Header:\n{fin_ack}")
-        fin_ack_data = fin_ack.toBytes('big')
-        logging.info(f"Sent Data: {fin_ack_data}")
-        sock.sendto(fin_ack_data, address)
-        
-        STATE = TCPState.CLOSE_WAIT
-        logging.info(f"State: {STATE.name}")
+        state = changeState(TCPState.CLOSE_WAIT)
 
-        my_fin = Header()
-        my_fin.setSeqNum(seq_num).setAckNum(ack_num)
-        my_fin.setWindow(0).setChecksum(my_fin.calcChecksum())
-        my_fin.setFin()
+        flags = Header.Flags.FIN.value
+        my_fin = Header.create(seq_num, ack_num, window, flags)
+        send(sock, my_fin, None)
 
-        logging.info(f"Sent Header:\n{my_fin}")
-        my_fin_data = fin_ack.toBytes('big')
-        logging.info(f"Sent Data: {my_fin_data}")
-        sock.sendto(my_fin_data, address)
-
-        STATE = TCPState.CLOSED
+        state = changeState(TCPState.CLOSED)
