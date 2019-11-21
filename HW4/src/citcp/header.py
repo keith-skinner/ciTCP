@@ -35,10 +35,8 @@ class Header:
         )
 
     @classmethod
-    def create(cls, seq, ack, window, flags):
-        temp = cls(seq, ack, window, 0, flags)
-        temp.setChecksum(temp.calcChecksum())
-        return temp
+    def from_tcb(cls, tcb, bytes, flags):
+        return cls(tcb.seq+bytes, tcb.ack, tcb.wind, 0, flags)
 
     def resetFlags(self):
         self.flags = 0
@@ -92,14 +90,16 @@ class Header:
         self.checksum = checksum
         return self
 
+
     def calcChecksum(self, data=b''):
         #TODO: Create calculation
+        
         return 0
 
     def isCorrupted(self):
         return self.calcChecksum() != self.checksum
 
-    def to_bytes(self, order):
+    def to_bytes(self, order=sys.byteorder):
         b = self.seq.to_bytes(2, order)
         b += self.ack.to_bytes(2, order)
         b += self.window.to_bytes(2, order)
@@ -108,7 +108,7 @@ class Header:
         return b
     
     @classmethod
-    def from_bytes(cls, bytes, order):
+    def from_bytes(cls, bytes, order=sys.byteorder):
         seq = int.from_bytes(bytes[0:2], order)
         ack = int.from_bytes(bytes[2:4], order)
         window = int.from_bytes(bytes[4:6], order)
@@ -134,4 +134,4 @@ class Header:
         return s
 
     def __len__(self):
-        return Header.length()
+        return Header.LENGTH

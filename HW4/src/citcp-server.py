@@ -1,10 +1,13 @@
 import socket, logging, argparse
 from citcp.header import Header
-from numpy.random import seed, randint
 from citcp.state import TCPState
-from common import *
+from citcp.common import *
+from citcp.tcb import Tcb
+from numpy.random import seed
 
 #TODO change message size to some larger size and see if it blocks on that larger size or nah
+
+tcb = None
 
 def parseArgs():
     parser = argparse.ArgumentParser(prog="ciTCP-server", description="A ciTCP Server")
@@ -27,28 +30,30 @@ def ciTcpInit(seedVal, args):
     return sock
 
 def ListenAction(sock):
-    seq_num, ack_num, window, flags = 0, 0, 0, 0
+
+    flags = None
     
     while True:
-        # Recieve SYN
-        syn, address = recv(sock)
-        if not syn.getSYN():
+        syn_header, _, address = recv(sock)
+        tcb = Tcb(address)
+        tcb.ack = syn_header.ack
+
+        if not syn_header.getSYN():
             continue
 
-        # Create Header values for SYN + ACK
-        seq_num = randint(0, Header.Limits.MAX_SEQ.value)
-        ack_num = syn.seq + 1
-        window = 0
+        ack_num = tcb.nextAck()
         flags = Header.Flags.SYN.value | Header.Flags.ACK.value
+        
+        syn_ack_header = Header.create(seq_num, ack_num, window, flags)
+        headerSend(sock, address, syn_ack_header)
 
-        # Send Header
-        syn_ack = Header.create(seq_num, ack_num, window, flags)
-        headerSend(sock, syn_ack)
-    return seq_num, ack_num, window, flags
+    return address, seq_num, ack_num, window, flags
     
 def SynReceivedAction(sock):
     while True:
-    ack, address = recv(sock)
+        ack_header, _, _ = recv(sock)
+        if not ack_header.getACK():
+            continue
 
 
 # TODO: Error checking for exceptions
@@ -60,27 +65,37 @@ if __name__ == '__main__':
 
     while True:
         state.changeState(TCPState.LISTEN)
-        seq_num, ack_num, window, flags = ListenAction(sock)
+        address, seq_num, ack_num, window, flags = ListenAction(sock)
 
         state.changeState(TCPState.SYN_RECIEVED)
 
-        
         state = state.changeState(TCPState.ESTABLISHED)
         
         ## SEND FILE HERE
 
-        ## SERVER HAPPENS TO BE FIN RECIEVER
+        file = open(args.file, "rb")
+    
+        closed = False
+        while not closed:
+            message = file.read(PAYLOAD_SIZE)
+            if message == "":
+                break
 
-        fin, address = recv(sock)
+            seq_num += PAYLOAD_SIZE
+            flags = Header.Flags.SYN.value
+            syn_data = Header.create(seq_num, ack_num, window, flags)
+            dataSend(sock, address, syn_data, message)
 
-        flags = Header.Flags.ACK.value
-        fin_ack = Header.create(seq_num, ack_num, window, flags)
-        send(sock, fin_ack, None)
+            header, payload, address = recv(sock)
+            if header.getFIN():
+                closed = True
+            
+        file.close()
 
-        state = changeState(TCPState.CLOSE_WAIT)
-
-        flags = Header.Flags.FIN.value
-        my_fin = Header.create(seq_num, ack_num, window, flags)
-        send(sock, my_fin, None)
-
-        state = changeState(TCPState.CLOSED)
+        
+        if not closed:
+            initiatorSequence(sock, seq_num, ack_num, window, state)
+        else:
+            responderSequence(sock, address, seq_num, ack_num, window, state)
+        
+        
