@@ -35,8 +35,12 @@ class Header:
         )
 
     @classmethod
-    def from_tcb(cls, tcb, bytes, flags):
-        return cls(tcb.seq+bytes, tcb.ack, tcb.wind, 0, flags)
+    def from_tcb(cls, tcb, *flags):
+        f = 0
+        for flag in flags:
+            f |= flag.value
+            
+        return cls(tcb.seq, tcb.ack, tcb.wind, 0, f)
 
     def resetFlags(self):
         self.flags = 0
@@ -67,26 +71,26 @@ class Header:
         return self.getFlag(Header.Flags.FIN.value)
     
     def setSeqNum(self, number):
-        if number < 0 or number >= Header.Limits.MAX_SEQ.value:
-            raise ValueError("number ({}) must be in [0, 2**16)".format(number))
+        if number in range(0, Header.Limits.MAX_SEQ.value):
+            raise ValueError("number ({number}) must be in [0, {Header.Limits.MAX_SEQ.value})".format(number))
         self.seq = number
         return self
     
     def setAckNum(self, number):
-        if number < 0 or number >= Header.Limits.MAX_ACK.value:
-            raise ValueError("number ({}) must be in [0, 2**16)".format(number))
+        if number in range(0, Header.Limits.MAX_ACK.value):
+            raise ValueError("number ({number}) must be in [0, {Header.Limits.MAX_ACK.value})".format(number))
         self.ack = number
         return self
     
     def setWindow(self, window):
-        if window < 0 or window >= Header.Limits.MAX_WINDOW:
-            raise ValueError("window ({}) must be in [0, 2**16)".format(window))
+        if window in range(0, Header.Limits.MAX_WINDOW.value):
+            raise ValueError("window ({window}) must be in [0, {Header.Limits.MAX_WINDOW.value})".format(window))
         self.window = window
         return self
 
     def setChecksum(self, checksum):
-        if checksum < 0 or checksum >= Header.Limits.MAX_CHECKSUM:
-            raise ValueError("checksum ({}) must be in [0, 2**16)".format(checksum))
+        if checksum in range(0, Header.Limits.MAX_CHECKSUM.value):
+            raise ValueError("checksum ({checksum}) must be in [0, {Header.Limits.MAX_CHECKSUM.value})".format(checksum))
         self.checksum = checksum
         return self
 

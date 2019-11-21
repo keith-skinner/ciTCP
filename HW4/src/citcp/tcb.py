@@ -3,13 +3,11 @@ from citcp.header import Header
 
 #ciTCP Transmission Control Block
 class Tcb:
-    def __init__(self, conn_addr):
-        # Who you're connected to
-        self.conn_addr = conn_addr
-        # Starting numbers
+    def __init__(self, sock):
+        self.sock = sock
         self.seq = randint(Header.Limits.MAX_SEQ.value)
         self.ack = 0
-        # Bytes recieved and sent
+        self.conn_addr = 0
         self.sent = 0
         self.recv = 0
 

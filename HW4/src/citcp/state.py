@@ -13,6 +13,10 @@ class TCPState(Enum):
     FIN_WAIT_2 = auto()
     TIME_WAIT = auto()
 
+    def startingState(self):
+        logging.ingo(f"State: --> {TCPState.CLOSED.name}")
+        return TCPState.CLOSED
+
     def changeState(self, state):
         logging.info(f"State: {self.name} --> {state.name}")
         self = state
