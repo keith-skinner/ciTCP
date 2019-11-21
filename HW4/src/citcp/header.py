@@ -13,6 +13,10 @@ class Header:
         ACK = 0b100
         SYN = 0b010
         FIN = 0b001
+        ALL = 0b111
+
+    # Number of bytes
+    LENGTH = 9
 
     def __init__(self, seq=0, ack=0, window=0, checksum=0, flags=0):
         self.seq = seq
@@ -88,14 +92,14 @@ class Header:
         self.checksum = checksum
         return self
 
-    def calcChecksum(self):
+    def calcChecksum(self, data=b''):
         #TODO: Create calculation
         return 0
 
     def isCorrupted(self):
         return self.calcChecksum() != self.checksum
 
-    def toBytes(self, order):
+    def to_bytes(self, order):
         b = self.seq.to_bytes(2, order)
         b += self.ack.to_bytes(2, order)
         b += self.window.to_bytes(2, order)
@@ -104,7 +108,7 @@ class Header:
         return b
     
     @classmethod
-    def fromBytes(cls, bytes, order):
+    def from_bytes(cls, bytes, order):
         seq = int.from_bytes(bytes[0:2], order)
         ack = int.from_bytes(bytes[2:4], order)
         window = int.from_bytes(bytes[4:6], order)
@@ -117,7 +121,8 @@ class Header:
         A = 'A' if self.getACK() else ' '
         S = 'S' if self.getSYN() else ' '
         F = 'F' if self.getFIN() else ' '
-        U = 'unused' if self.flags & ~0b111 == 0 else str(self.flags & ~0b111)
+        U = self.flags & ~Header.Flags.ALL.value
+        U = 'unused' if U == 0 else str(U)
         s  = '\n\t|0                            15|16                           31| bit'
         s += '\n\t+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+'
         s += '\n\t|{:^31}|{:^31}|'.format(self.seq, self.ack)
@@ -127,11 +132,6 @@ class Header:
         s += '\n\t|{:^9}|{}|{}|{}|'.format(U, A, S, F)
         s += '\n\t+-+-+-+-+-+-+-+-+'
         return s
-
-    @classmethod
-    def length(cls):
-        #number of bytes
-        return 9
 
     def __len__(self):
         return Header.length()

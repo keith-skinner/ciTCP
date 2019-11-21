@@ -1,6 +1,8 @@
 import socket, logging, sys, argparse
 from citcp.header import Header
 from numpy.random import seed, randint
+from citcp.state import TCPState
+from citcp.common import *
 
 # Milestone 1
 #   High level design of client and server,
@@ -13,18 +15,6 @@ from numpy.random import seed, randint
 #   No congestion window
 #   No timers, retransmission, duplicate 
 #     ack handling
-
-class TCPState(Enum):
-    CLOSED = auto()
-    LISTEN = auto()
-    SYN_SENT = auto()
-    SYN_RECIEVED = auto()
-    ESTABLISHED = auto()
-    CLOSE_WAIT = auto()
-    LAST_ACK = auto()
-    FIN_WAIT_1 = auto()
-    FIN_WAIT_2 = auto()
-    TIME_WAIT = auto()
 
 if __name__ == '__main__':
     
