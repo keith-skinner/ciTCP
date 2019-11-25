@@ -6,7 +6,7 @@ from citcp.tcb import Tcb
 
 
 # Total message size
-MSG_SIZE = 1024
+MSG_SIZE = 512
 # Size of payload from message
 PAYLOAD_SIZE = MSG_SIZE - Header.LENGTH
 # How long to wait until the package is considered lost
@@ -20,6 +20,7 @@ def rawSend(tcb, header, data=b''):
     logging.info(f"Sent:")
     logging.info(f"  Header: {header}")
     logging.info(f"  Data:   {data}")
+    #logging.info(f"  Data:   {data.decode('utf-8')}")
     return nBytes
 
 
@@ -35,7 +36,7 @@ def dataSend(tcb, header, data):
     logging.info(header)
     logging.info(data)
     header_raw = header.to_bytes()
-    data_raw = header.to_bytes()
+    data_raw = data #happens to be raw bytes already
     return rawSend(tcb, header_raw, data_raw)
 
 
