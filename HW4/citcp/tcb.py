@@ -11,4 +11,5 @@ class Tcb:
         self.ack = 0
         self.sent = 0
         self.recv = 0
+        self.wind = 1
         self.timeout_wait = citcp.common.TIMEOUT_WAIT_DEFAULT

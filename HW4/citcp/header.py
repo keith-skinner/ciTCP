@@ -38,22 +38,27 @@ class Header:
             self.ack, 
             self.window, 
             self.checksum,
-            self.flags
-        )
+            self.flags)
 
 
     @classmethod
     def from_tcb(cls, tcb, *flags):
         f = Header.collectFlags(flags)
-        return cls(tcb.seq+tcb.sent, tcb.ack+tcb.recv, tcb.wind, 0, f)
+        return cls(
+            (tcb.seq+tcb.sent) % Header.Limits.MAX_SEQ.value, 
+            (tcb.ack+tcb.recv) % Header.Limits.MAX_ACK.value, 
+            (tcb.wind)         % Header.Limits.MAX_WINDOW.value, 
+            0, 
+            f
+        )
 
 
     @staticmethod
     def collectFlags(flags):
-        f=0
+        value=0
         for flag in flags:
-            f |= flag.value
-        return f
+            value |= flag.value
+        return value
 
 
     def resetFlags(self):
@@ -120,24 +125,32 @@ class Header:
         return self
 
 
+    def addressToInt(self, address):
+        pass 
+
+
     def calcChecksum(self, address, data=b''):
         #TODO: Create calculation
+        
         return 0
 
-    def isCorrupted(self):
-        return self.calcChecksum() != self.checksum
+
+    def isCorrupted(self, address, data=b''):
+        return self.calcChecksum(address, data) != self.checksum
+
 
     def correctSynAck(self, tcb):
         return self.seq == tcb.ack+tcb.recv and self.ack == tcb.seq+tcb.sent
 
     def to_bytes(self, order=sys.byteorder):
-        b = self.seq.to_bytes(2, order)
+        b  = self.seq.to_bytes(2, order)
         b += self.ack.to_bytes(2, order)
         b += self.window.to_bytes(2, order)
         b += self.checksum.to_bytes(2, order)
         b += self.flags.to_bytes(1, order)
         return b
     
+
     @classmethod
     def from_bytes(cls, bytes, order=sys.byteorder):
         seq = int.from_bytes(bytes[0:2], order)
@@ -163,6 +176,7 @@ class Header:
         s += '\n\t|{:^9}|{}|{}|{}|'.format(U, A, S, F)
         s += '\n\t+-+-+-+-+-+-+-+-+'
         return s
+
 
     def __len__(self):
         return Header.LENGTH

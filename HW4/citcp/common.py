@@ -4,6 +4,7 @@ from citcp.header import Header
 from citcp.state import TCPState
 from citcp.tcb import Tcb
 
+
 # Total message size
 MSG_SIZE = 1024
 # Size of payload from message
@@ -15,10 +16,10 @@ TIMED_WAIT = 100 / 1000
 
 
 def rawSend(tcb, header, data=b''):
-    nBytes = tcb.sock.sendto(header+data, tcb.conn_addr)
+    nBytes = tcb.sock.sendto(header+data, 0, tcb.conn_addr)
     logging.info(f"Sent:")
-    logging.info(f"\tHeader: {header}")
-    logging.info(f"\tData: {data}")
+    logging.info(f"  Header: {header}")
+    logging.info(f"  Data:   {data}")
     return nBytes
 
 
@@ -37,6 +38,7 @@ def dataSend(tcb, header, data):
     data_raw = header.to_bytes()
     return rawSend(tcb, header_raw, data_raw)
 
+
 def rawRecv(tcb):
     logging.info("Receiving:")
     data, address = tcb.sock.recvfrom(MSG_SIZE)
@@ -54,11 +56,11 @@ def recv(tcb):
     return header, payload, address
 
 
-def recvHeader(tcb, *flags, b=0):
-    f = Header.collectFlags(flags=flags)
+def recvHeader(tcb, *flags, setaddr = False):
+    f = Header.collectFlags(flags)
     while True:
-        header, _, _ = recv(tcb)
-        if header.isCorrupted():
+        header, payload, address = recv(tcb)
+        if header.isCorrupted(address, payload):
             # TODO: Ask for resend
             continue
 
@@ -68,15 +70,16 @@ def recvHeader(tcb, *flags, b=0):
             # continue
 
         elif header.getFlag(f):
-            tcb.recv += b
+            if setaddr:
+                tcb.conn_addr = address
             return header
         # else drop packet by doing nothing with it
 
 
 def recvData(tcb):
     while True:
-        header, payload, _ = recv(tcb)
-        if header.isCorrupted():
+        header, payload, address = recv(tcb)
+        if header.isCorrupted(address, payload):
             #TODO: Ask for resend
             continue
 
@@ -88,31 +91,26 @@ def recvData(tcb):
             return b'', True
 
 
-def splitFile(filename, size, stop=False):
-    with open(filename, "rb") as file:
-        message = file.read(size)
-        while not stop and message != '':
-            yield message
-            #Allows for early termination and closing of file
-            if stop:
-                return
-            message = file.read(size)
+def splitFile(file, chunk=PAYLOAD_SIZE):
+    while True:
+        value = file.read(chunk)
+        if not value:
+            break
+        yield value
 
 
 def sendFile(tcb, filename):
-    for message in splitFile(filename, PAYLOAD_SIZE):
-        syn_data = Header.from_tcb(tcb, Header.Flags.SYN.value)
-        dataSend(tcb, syn_data, message)
-        tcb.sent += len(message)
-        
-        header = recvHeader(tcb, Header.Flags.ACK, Header.Flags.FIN)
-        if header.getFIN():
-            return True
-
-        # TODO: if header is SYN and doesnt respond with the right ack
-
-
+    with open(filename, 'rb') as file:
+        for message in splitFile(file, PAYLOAD_SIZE):
+            syn_data = Header.from_tcb(tcb, Header.Flags.SYN)
+            dataSend(tcb, syn_data, message)
+            tcb.sent += len(message)
+            
+            header = recvHeader(tcb, Header.Flags.ACK, Header.Flags.FIN)
+            if header.getFIN():
+                return True
     return False
+
 
 def receiveFile(tcb, filename):
     with open(filename, 'wb') as file:
@@ -121,7 +119,7 @@ def receiveFile(tcb, filename):
             payload, closed = recvData(tcb)
             file.write(payload)
             if not closed:
-                sendHeader(tcb, Header.from_tcb(tcb, Header.FLags.ACK.value))
+                sendHeader(tcb, Header.from_tcb(tcb, Header.Flags.ACK))
 
 
 def FinSendAction(tcb):
@@ -129,7 +127,7 @@ def FinSendAction(tcb):
 
 
 def FinWait1Action(tcb):
-    recvHeader(Header.Flags.ACK)
+    recvHeader(tcb, Header.Flags.ACK)
 
 
 def FinWait2Action(tcb):
@@ -154,8 +152,8 @@ def LastAckAction(tcb):
 
 
 def ListenAction(tcb):
-    syn_header = recvHeader(tcb, Header.Flags.SYN)
-    tcb.ack = syn_header.syn
+    syn_header = recvHeader(tcb, Header.Flags.SYN, setaddr=True)
+    tcb.ack = syn_header.seq
     tcb.recv += 1
     sendHeader(tcb, Header.from_tcb(tcb, Header.Flags.SYN, Header.Flags.ACK))
     tcb.sent += 1
@@ -180,7 +178,7 @@ def ClosedAction(tcb):
 
 def SynSentAction(tcb):
     synack_header = recvHeader(tcb, Header.Flags.SYNACK)
-    tcb.ack = synack_header.syn
+    tcb.ack = synack_header.seq
     tcb.recv += 1
     sendHeader(tcb, Header.from_tcb(tcb, Header.Flags.ACK))
 

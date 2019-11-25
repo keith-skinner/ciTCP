@@ -5,11 +5,13 @@ from citcp.common import *
 from citcp.tcb import Tcb
 from random import seed
 
+# Uncomment the line below to print the INFO messages
+logging.basicConfig(level=logging.INFO)
 
 def parseArgs():
     parser = argparse.ArgumentParser(prog="ciTCP-server", description="A ciTCP Server")
     parser.add_argument('port', help="port the server binds to", type=int)
-    parser.add_argument('file', help="file the server sends")
+    parser.add_argument('filename', help="file the server sends")
     return parser.parse_args()
 
 
