@@ -6,8 +6,10 @@ from citcp.common import *
 from citcp.state import TCPState
 from citcp.tcb import Tcb
 
+
 # Uncomment the line below to print the INFO messages
 logging.basicConfig(level=logging.INFO)
+
 
 def parseArgs():
     parser = argparse.ArgumentParser(prog='ciTCP-client', description='A ciTCP Client')
@@ -16,14 +18,17 @@ def parseArgs():
     parser.add_argument('filename', help='The file to create locally')
     return parser.parse_args()
 
+
 def socketInit():
     logging.info("Creating UDP/IP socket")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return sock
 
+
 def seedNum(s):
     logging.info(f"Using seed: {s}")
     seed(s)
+
 
 if __name__ == '__main__':
     args = parseArgs()

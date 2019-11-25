@@ -5,8 +5,10 @@ from citcp.common import *
 from citcp.tcb import Tcb
 from random import seed
 
+
 # Uncomment the line below to print the INFO messages
 logging.basicConfig(level=logging.INFO)
+
 
 def parseArgs():
     parser = argparse.ArgumentParser(prog="ciTCP-server", description="A ciTCP Server")
@@ -23,11 +25,14 @@ def initSocket(args):
     sock.bind(server_address)
     return sock
 
+def seedNum(s):
+    logging.info(f"Using seed: {s}")
+    seed(s)
 
 # TODO: Error checking for exceptions
 if __name__ == '__main__':
     args = parseArgs()
-    seed(0xB429F2019)
+    seedNum(0xB429F2019)
     tcb = Tcb(initSocket(args))
     logging.info(f"Sequence Number: {tcb.seq}")
     state = TCPState.startingState()

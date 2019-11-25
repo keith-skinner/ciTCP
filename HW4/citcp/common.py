@@ -69,7 +69,7 @@ def recvHeader(tcb, *flags, setaddr = False):
             # TODO: Ask for resend
             # TODO: Ask if this is correct
             # continue
-
+        
         elif header.getFlag(f):
             if setaddr:
                 tcb.conn_addr = address
@@ -106,7 +106,6 @@ def sendFile(tcb, filename):
             syn_data = Header.from_tcb(tcb, Header.Flags.SYN)
             dataSend(tcb, syn_data, message)
             tcb.sent += len(message)
-            
             header = recvHeader(tcb, Header.Flags.ACK, Header.Flags.FIN)
             if header.getFIN():
                 return True
@@ -166,9 +165,9 @@ def SynReceivedAction(tcb):
 
 def openResponderSequence(tcb, state):
     ListenAction(tcb)
-    state.changeState(TCPState.SYN_RECIEVED)
+    state = state.changeState(TCPState.SYN_RECIEVED)
     SynReceivedAction(tcb)
-    state.changeState(TCPState.ESTABLISHED)
+    state = state.changeState(TCPState.ESTABLISHED)
     return state
 
 
@@ -188,31 +187,31 @@ def openInitiatorSequence(tcb, state):
     if state is None:
         state = TCPState.startingState()
     else:
-        state.changeState(TCPState.CLOSED)
+        state = state.changeState(TCPState.CLOSED)
     ClosedAction(tcb)
-    state.changeState(TCPState.SYN_SENT)
+    state = state.changeState(TCPState.SYN_SENT)
     SynSentAction(tcb)
-    state.changeState(TCPState.ESTABLISHED)
+    state = state.changeState(TCPState.ESTABLISHED)
     return state
 
 
 def closeInitiatorSequence(tcb, state):
     FinSendAction(tcb)
-    state.changeState(TCPState.FIN_WAIT_1)
+    state = state.changeState(TCPState.FIN_WAIT_1)
     FinWait1Action(tcb)
-    state.changeState(TCPState.FIN_WAIT_2)
+    state = state.changeState(TCPState.FIN_WAIT_2)
     FinWait2Action(tcb)
-    state.changeState(TCPState.TIME_WAIT)
+    state = state.changeState(TCPState.TIME_WAIT)
     TimeWaitAction(tcb)
-    state.changeState(TCPState.CLOSED)
+    state = state.changeState(TCPState.CLOSED)
     return state
 
 
 def closeResponderSequence(tcb, state):
     FinReceivedAction(tcb)
-    state.changeState(TCPState.CLOSE_WAIT)
+    state = state.changeState(TCPState.CLOSE_WAIT)
     CloseWaitAction(tcb)
-    state.changeState(TCPState.LAST_ACK)
+    state = state.changeState(TCPState.LAST_ACK)
     LastAckAction(tcb)
-    state.changeState(TCPState.CLOSED)
+    state = state.changeState(TCPState.CLOSED)
     return state
