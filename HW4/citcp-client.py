@@ -1,5 +1,5 @@
 import socket, logging, sys, argparse
-from numpy.random import seed, randint
+from random import seed
 from citcp.header import Header
 from citcp.state import TCPState
 from citcp.common import *
@@ -14,14 +14,19 @@ def parseArgs():
     return parser.parse_args()
 
 def socketInit():
+    logging.info("Creating UDP/IP socket")
     socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket
 
+def seedNum(s):
+    logging.info(f"Using seed: {s}")
+    seed(s)
+
 if __name__ == '__main__':
     args = parseArgs()
-    seed(0xA429F2019)
-    tcb = Tcb(socketInit())
-    tcb.conn_addr = (args.hostname, args.port)
+    seedNum(0xA429F2019)
+    tcb = Tcb(socketInit(), (args.hostname, args.port))
+    logging.info(f"Sequence Number: {tcb.seq}")
 
     state = openInitiatorSequence(tcb, None)
     receiveFile(tcb, args.filename)

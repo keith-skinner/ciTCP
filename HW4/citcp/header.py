@@ -3,11 +3,14 @@ import sys
 from enum import Enum
 
 class Header:
+
+
     class Limits(Enum):
         MAX_SEQ = 2**16
         MAX_ACK = 2**16
         MAX_WINDOW = 2**16
         MAX_CHECKSUM = 2**16
+
 
     class Flags(Enum):
         ACK = 0b100
@@ -16,8 +19,10 @@ class Header:
         FIN = 0b001
         ALL = 0b111
 
-    # Number of bytes
+
+    # Number of bytes for header
     LENGTH = 9
+
 
     def __init__(self, seq=0, ack=0, window=0, checksum=0, flags=0):
         self.seq = seq
@@ -25,6 +30,7 @@ class Header:
         self.window = window
         self.checksum = checksum
         self.flags = flags
+
 
     def copy(self):
         return Header(
@@ -35,63 +41,77 @@ class Header:
             self.flags
         )
 
+
     @classmethod
     def from_tcb(cls, tcb, *flags):
         f = Header.collectFlags(flags)
         return cls(tcb.seq+tcb.sent, tcb.ack+tcb.recv, tcb.wind, 0, f)
 
+
     @staticmethod
-    def collectFlags(*flags):
+    def collectFlags(flags):
         f=0
         for flag in flags:
             f |= flag.value
         return f
 
+
     def resetFlags(self):
         self.flags = 0
         return self
+
 
     def setACK(self):
         self.flags |= Header.Flags.ACK.value
         return self
     
+
     def setSYN(self):
         self.flags |= Header.Flags.SYN.value
         return self
     
+
     def setFIN(self):
         self.flags |= Header.Flags.FIN.value
         return self
 
+
     def getFlag(self, mask):
         return 1 if self.flags & mask != 0 else 0
+
 
     def getACK(self):
         return self.getFlag(Header.Flags.ACK.value)
 
+
     def getSYN(self):
         return self.getFlag(Header.Flags.SYN.value)
     
+
     def getFIN(self):
         return self.getFlag(Header.Flags.FIN.value)
     
+
     def setSeqNum(self, number):
         if number in range(0, Header.Limits.MAX_SEQ.value):
             raise ValueError("number ({number}) must be in [0, {Header.Limits.MAX_SEQ.value})".format(number))
         self.seq = number
         return self
     
+
     def setAckNum(self, number):
         if number in range(0, Header.Limits.MAX_ACK.value):
             raise ValueError("number ({number}) must be in [0, {Header.Limits.MAX_ACK.value})".format(number))
         self.ack = number
         return self
     
+
     def setWindow(self, window):
         if window in range(0, Header.Limits.MAX_WINDOW.value):
             raise ValueError("window ({window}) must be in [0, {Header.Limits.MAX_WINDOW.value})".format(window))
         self.window = window
         return self
+
 
     def setChecksum(self, checksum):
         if checksum in range(0, Header.Limits.MAX_CHECKSUM.value):
@@ -100,13 +120,15 @@ class Header:
         return self
 
 
-    def calcChecksum(self, data=b''):
+    def calcChecksum(self, address, data=b''):
         #TODO: Create calculation
-        
         return 0
 
     def isCorrupted(self):
         return self.calcChecksum() != self.checksum
+
+    def correctSynAck(self, tcb):
+        return self.seq == tcb.ack+tcb.recv and self.ack == tcb.seq+tcb.sent
 
     def to_bytes(self, order=sys.byteorder):
         b = self.seq.to_bytes(2, order)

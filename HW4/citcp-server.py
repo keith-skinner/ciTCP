@@ -3,7 +3,7 @@ from citcp.header import Header
 from citcp.state import TCPState
 from citcp.common import *
 from citcp.tcb import Tcb
-from numpy.random import seed
+from random import seed
 
 
 def parseArgs():
@@ -14,7 +14,7 @@ def parseArgs():
 
 
 def initSocket(args):
-    logging.info("Creating TCP/IP socket")
+    logging.info("Creating UDP/IP socket")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_address = ('localhost', args.port)
     logging.info(f"Binding socket to interface: {server_address[0]}:{server_address[1]}")
@@ -27,6 +27,7 @@ if __name__ == '__main__':
     args = parseArgs()
     seed(0xB429F2019)
     tcb = Tcb(initSocket(args))
+    logging.info(f"Sequence Number: {tcb.seq}")
     state = TCPState.startingState()
     
     while True:

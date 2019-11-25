@@ -55,12 +55,17 @@ def recv(tcb):
 
 
 def recvHeader(tcb, *flags, b=0):
-    f = Header.collectFlags(flags)
+    f = Header.collectFlags(flags=flags)
     while True:
         header, _, _ = recv(tcb)
         if header.isCorrupted():
-            #TODO: Ask for resend
+            # TODO: Ask for resend
             continue
+
+        # if not header.correctSynAck(tcb):
+            # TODO: Ask for resend
+            # TODO: Ask if this is correct
+            # continue
 
         elif header.getFlag(f):
             tcb.recv += b
@@ -86,7 +91,7 @@ def recvData(tcb):
 def splitFile(filename, size, stop=False):
     with open(filename, "rb") as file:
         message = file.read(size)
-        while not stop and message != "":
+        while not stop and message != '':
             yield message
             #Allows for early termination and closing of file
             if stop:
@@ -95,16 +100,19 @@ def splitFile(filename, size, stop=False):
 
 
 def sendFile(tcb, filename):
-    closed = False
     for message in splitFile(filename, PAYLOAD_SIZE):
         syn_data = Header.from_tcb(tcb, Header.Flags.SYN.value)
         dataSend(tcb, syn_data, message)
+        tcb.sent += len(message)
         
-        header = recvHeader(tcb, Header.Flags.SYN, Header.Flags.FIN)
+        header = recvHeader(tcb, Header.Flags.ACK, Header.Flags.FIN)
         if header.getFIN():
-            closed = True
-            break
-    return closed
+            return True
+
+        # TODO: if header is SYN and doesnt respond with the right ack
+
+
+    return False
 
 def receiveFile(tcb, filename):
     with open(filename, 'wb') as file:
@@ -142,15 +150,12 @@ def CloseWaitAction(tcb):
 
 
 def LastAckAction(tcb):
-    h = recvHeader(tcb, Header.Flags.ACK)
-    tcb.setAck(header.syn)
-    if not h.getSYN():
-        pass #TODO: what do i do here again?
+    ack_header = recvHeader(tcb, Header.Flags.ACK)
 
 
 def ListenAction(tcb):
     syn_header = recvHeader(tcb, Header.Flags.SYN)
-    tcb.ack = header.syn
+    tcb.ack = syn_header.syn
     tcb.recv += 1
     sendHeader(tcb, Header.from_tcb(tcb, Header.Flags.SYN, Header.Flags.ACK))
     tcb.sent += 1
@@ -158,9 +163,6 @@ def ListenAction(tcb):
 
 def SynReceivedAction(tcb):
     ack_header = recvHeader(tcb, Header.Flags.ACK)
-    while ack_header.ack != tcb.seq+tcb.sent or ack_header.seq != tcb.ack+tcb.recv:
-        #TODO: Ask for resend?
-        ack_header = recvHeader(tcb, Header.Flags.ACK)
 
 
 def openResponderSequence(tcb, state):
